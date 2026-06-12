@@ -1,0 +1,11 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+
+# Données de compétition (non publiées)
+data/*.csv
