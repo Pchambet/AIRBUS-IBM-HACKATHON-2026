@@ -85,7 +85,7 @@ def _charts(m: dict) -> dict:
             # Phones: the labels go left of the markers, where the plot has room.
             "narrow": {
                 "traces": {
-                    "4": {
+                    "Kaggle (reported)": {
                         "textposition": "middle left",
                         "text": [f"public LB {REPORTED_PUBLIC}", f"private LB {REPORTED_PRIVATE}"],
                     }
@@ -447,7 +447,7 @@ const ink = dark ? "#e2e8f0" : "#0f172a", grid = dark ? "#1e293b" : "#e2e8f0";
 const narrow = matchMedia("(max-width: 600px)").matches;
 for (const [id, spec] of Object.entries(charts)) {{
   if (narrow && spec.narrow) {{
-    for (const [i, t] of Object.entries(spec.narrow.traces || {{}})) Object.assign(spec.data[+i], t);
+    for (const t of spec.data) Object.assign(t, (spec.narrow.traces || {{}})[t.name]);
     for (const [k, v] of Object.entries(spec.narrow.layout || {{}})) spec.layout[k] = Object.assign({{}}, spec.layout[k], v);
   }}
   for (const t of spec.data) if (t.marker && t.marker.color === "INK") t.marker.color = ink;
