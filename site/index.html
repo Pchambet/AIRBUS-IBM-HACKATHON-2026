@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Corrosion risk under shift</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%224%22 fill=%22%230d9488%22/%3E%3C/svg%3E">
+<meta name="description" content="Validation study of a corrosion-risk model whose test fleet differs from its training fleet.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<style>
+:root { --bg:#ffffff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#f8fafc; --accent:#0d9488; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0b1120; --ink:#e2e8f0; --muted:#94a3b8;
+  --line:#1e293b; --card:#111827; --accent:#2dd4bf; } }
+:root[data-theme="dark"] { --bg:#0b1120; --ink:#e2e8f0; --muted:#94a3b8; --line:#1e293b; --card:#111827; --accent:#2dd4bf; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.65 Inter, system-ui, -apple-system, sans-serif; }
+main { max-width:860px; margin:0 auto; padding:48px 16px 80px; }
+.kicker { color:var(--accent); font-weight:600; font-size:.85rem; letter-spacing:.04em; text-transform:uppercase; margin:0; }
+h1 { font-size:2.1rem; line-height:1.2; margin:.3em 0 .4em; }
+h2 { font-size:1.3rem; margin:2.2em 0 .5em; }
+.lede { font-size:1.1rem; color:var(--muted); }
+.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:28px 0; }
+.kpis div { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; font-size:.85rem; color:var(--muted); }
+.kpis span { display:block; font-size:1.35rem; font-weight:700; color:var(--ink); }
+.chart { height:420px; margin:16px 0; }
+.chart.small { height:360px; }
+.note { font-size:.88rem; color:var(--muted); }
+table { width:100%; border-collapse:collapse; font-size:.85rem; margin:16px 0; display:block; overflow-x:auto; }
+th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+th { color:var(--muted); font-weight:600; }
+footer { margin-top:48px; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:.85rem; }
+a { color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <p class="kicker">Airbus × IBM × AWS hackathon 2026 · aircraft corrosion risk</p>
+  <h1>When the test fleet is not your training fleet</h1>
+  <p class="lede">A corrosion-risk model built for a Kaggle-scored hackathon, and the validation work that decided
+  its single most important parameter. Reported result: <strong>6th on the Brier leaderboard, 2nd overall</strong>
+  (model + business pitch), climbing from 22nd on the public leaderboard to 6th on the private one.</p>
+</header>
+
+<section class="kpis">
+  <div><span>0.86</span>adversarial AUC: test aircraft are easy to tell apart</div>
+  <div><span>0.140 → 0.204</span>raw-model Brier, in-distribution → test-like</div>
+  <div><span>α = 0.72</span>Brier-optimal shrinkage on test-like aircraft (CV says 1.00)</div>
+  <div><span>±0.031</span>95% margin of error of a 143-row public score</div>
+</section>
+
+<h2>1. The problem, stated precisely</h2>
+<p>Each of 758 training aircraft has a monthly environment history (weather, aerosols, gases,
+parking time) and one corrosion observation date T. The leaderboard scores only two months per aircraft: T (label 1)
+and T − 24 months (label 0). That gives 1270 labelled rows (616 positives,
+654 negatives) and turns the task into a balanced, <em>within-aircraft</em> question: is this aircraft
+more exposed now than two years ago? Anything constant per aircraft cancels out. The model is a LightGBM regressor
+on 0/1 labels (squared error is the Brier score) over 66 strictly causal exposure features.</p>
+
+<h2>2. The test fleet is a different population</h2>
+<p>A classifier trained to tell training rows from test rows, with folds split by aircraft, reaches
+AUC 0.86. The clearest symptom: 63% of test aircraft
+have data from the first year of the record (2014), against
+0.3% of training aircraft. Their histories are left-censored, so "age" means
+something else for them.</p>
+<div class="chart" id="shift"></div>
+
+<h2>3. A validation split that looks like the test set</h2>
+<p>Grouped cross-validation answers "how good is the model on aircraft like the training ones?". To answer the
+question that matters, the training aircraft were ranked by how test-like the adversarial model finds them; the model
+is fitted on the 384 least test-like and scored on the 315 most
+test-like (558 rows). Uncertainty comes from a bootstrap over aircraft, not rows.</p>
+<p>The two validations disagree on the one decision that matters. In-distribution, shrinking predictions toward
+0.5 only hurts (best α = 1.00). On test-like aircraft the raw model is over-confident and the
+Brier-optimal shrinkage is α = 0.72. The submission used α = 0.7; on the holdout that improves
+the Brier by 0.0077 (paired 95% CI 0.0019 to
+0.0138).</p>
+<div class="chart" id="sweep"></div>
+<p class="note">Diamonds are the scores reported on the Kaggle leaderboard; they cannot be recomputed without the
+hidden labels. The holdout estimate at α = 0.7 is 0.197
+(95% CI 0.182–0.211); in-distribution CV would have promised
+0.140.</p>
+<div class="chart small" id="reliability"></div>
+
+<h2>4. What else was tried, judged on the holdout</h2>
+<p>All candidates share features and splits; differences are paired (same aircraft), negative is better.</p>
+<table><tr><th>Model</th><th>Brier at α = 0.7</th><th>95% CI</th><th>Δ vs submitted</th><th>AUC</th></tr><tr><td>Constant 0.5</td><td>0.2500</td><td>[0.2500, 0.2500]</td><td>+0.0532 [+0.0390, +0.0676]</td><td>0.500</td></tr><tr><td>LightGBM squared error (submitted)</td><td>0.1968</td><td>[0.1824, 0.2110]</td><td></td><td>0.766</td></tr><tr><td>LightGBM log-loss + Platt scaling</td><td>0.1922</td><td>[0.1790, 0.2063]</td><td>-0.0046 [-0.0096, +0.0005]</td><td>0.774</td></tr><tr><td>LightGBM squared error, 500 trees depth 7</td><td>0.2018</td><td>[0.1867, 0.2171]</td><td>+0.0050 [+0.0014, +0.0089]</td><td>0.750</td></tr><tr><td>Logistic regression</td><td>0.2089</td><td>[0.1953, 0.2240]</td><td>+0.0121 [+0.0011, +0.0235]</td><td>0.737</td></tr><tr><td>LightGBM on aircraft age only</td><td>0.2045</td><td>[0.1887, 0.2204]</td><td>+0.0077 [-0.0067, +0.0226]</td><td>0.740</td></tr></table>
+<div class="chart" id="models"></div>
+<p>Two honest readings. First, a LightGBM that sees only the two clock features (months observed, age) captures
+86% of the full model's gain over a constant forecast on test-like aircraft; the
+environmental features add little that transfers. Second, the choice of objective (squared error versus log-loss
+with Platt scaling) is within noise on the holdout.</p>
+<table><tr><th>Lever</th><th>Brier at α = 0.7</th><th>95% CI</th><th>Δ vs submitted</th><th>AUC</th></tr><tr><td>Full feature set (submitted)</td><td>0.1968</td><td>[0.1824, 0.2110]</td><td></td><td>0.766</td></tr><tr><td>Drop the 5 most shift-revealing features</td><td>0.1984</td><td>[0.1843, 0.2130]</td><td>+0.0016 [-0.0014, +0.0046]</td><td>0.760</td></tr><tr><td>Drop the 10 most shift-revealing features</td><td>0.1932</td><td>[0.1793, 0.2078]</td><td>-0.0036 [-0.0077, +0.0005]</td><td>0.773</td></tr><tr><td>Drop the 15 most shift-revealing features</td><td>0.1925</td><td>[0.1788, 0.2070]</td><td>-0.0044 [-0.0091, +0.0004]</td><td>0.774</td></tr><tr><td>10-model ensemble (5 seeds x 2 objectives)</td><td>0.1929</td><td>[0.1796, 0.2069]</td><td>-0.0039 [-0.0067, -0.0010]</td><td>0.772</td></tr></table>
+<p>Of the 4 levers against the shift, only 10-model ensemble (5 seeds x 2 objectives) has a paired interval that excludes zero, and by a small margin (-0.0039). With 4 levers tried, treat it as suggestive; it was not part of the submission.</p>
+
+<h2>5. Why the public leaderboard was not worth chasing</h2>
+<p>With 143 rows, a single public Brier score carries a 95% margin of error of
+±0.031; two independent scores must differ by more than
+0.043 to be told apart. Most of the public ranking was noise, which is why the
+submission was chosen on the holdout rather than on public feedback.</p>
+<div class="chart small" id="noise"></div>
+
+<h2>6. Leak audit</h2>
+<p>No artefact betrays the corrosion month: missingness at T differs from other months by at most
+0.06%; duplicate rows are about as frequent at T (7.6%)
+as elsewhere (6.0%); T is the last observed month for only
+1.8% of aircraft (median gap 23 months).</p>
+
+<h2>Limitations</h2>
+<ul>
+  <li>The holdout is one split of 315 aircraft; it is deliberately pessimistic (the model sees
+  only 55% of training aircraft) and served to choose α, not to forecast the final score.</li>
+  <li>Leaderboard scores and ranks are as reported by the organisers and cannot be reproduced here.</li>
+  <li>The first observed month stands in for delivery because the test set has no delivery date; it is wrong for
+  aircraft whose history starts with the record.</li>
+  <li>The competition data cannot be redistributed; reproducing requires accepting the Kaggle rules.</li>
+</ul>
+
+<footer>Code and data pipeline: <a href="https://github.com/Pchambet/AIRBUS-IBM-HACKATHON-2026">github.com/Pchambet/AIRBUS-IBM-HACKATHON-2026</a>.
+Built by <a href="https://github.com/Pchambet">Pierre Chambet</a> — decision science for operations under uncertainty.</footer>
+</main>
+<script>
+const charts = {"sweep": {"data": [{"x": [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35, 0.3], "y": [0.1975863018443732, 0.1907352162171397, 0.1844446472127054, 0.1786763185276889, 0.1734625321326188, 0.1687022609501379, 0.1645668413559128, 0.160990820300243, 0.1579718281871048, 0.1553732944902643, 0.1532892816102827, 0.1518134781620873, 0.1508763827170583, 0.1505706808087353, 0.1506344640380971, 0.129800102553196, 0.1305535349584203, 0.1318652905707356, 0.1335799161923834, 0.1360154567477113, 0.1388657149047114, 0.1423193260553296, 0.146327716164729, 0.1509481981832147, 0.1561101907452484, 0.1618423698987667, 0.1681352170712749, 0.1749492841176808, 0.1823548305724591, 0.1903549848026557], "fill": "toself", "fillcolor": "#64748b22", "line": {"width": 0}, "hoverinfo": "skip", "showlegend": false}, {"x": [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0], "y": [0.1939, 0.1865, 0.1796, 0.1733, 0.1675, 0.1623, 0.1576, 0.1535, 0.1499, 0.1469, 0.1445, 0.1425, 0.1412, 0.1404, 0.1401], "name": "In-distribution CV", "line": {"color": "#64748b", "width": 2.5}, "hovertemplate": "\u03b1=%{x:.2f}<br>Brier %{y:.4f}<extra>In-distribution CV</extra>"}, {"x": [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35, 0.3], "y": [0.2212180321493615, 0.2181790723670109, 0.2156408144044434, 0.2135843536784089, 0.2120201531145849, 0.211074198489307, 0.2105514273128316, 0.2104598025553914, 0.2110315525585476, 0.2120013854802846, 0.2135546577269934, 0.215636468498386, 0.2182255401283814, 0.2212743712255264, 0.2247592138200095, 0.1848135570035574, 0.183074389538653, 0.1818531592378778, 0.1811375780894636, 0.180888030968551, 0.1813604167964514, 0.1823504098268809, 0.1837374387745912, 0.1858360874777532, 0.1884046331275915, 0.1914676814064937, 0.1949880435315385, 0.1990773021184298, 0.2036338689802511, 0.2087172840120371], "fill": "toself", "fillcolor": "#0d948822", "line": {"width": 0}, "hoverinfo": "skip", "showlegend": false}, {"x": [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0], "y": [0.215, 0.211, 0.2074, 0.2044, 0.2018, 0.1998, 0.1983, 0.1973, 0.1968, 0.1968, 0.1973, 0.1984, 0.1999, 0.202, 0.2045], "name": "Test-like holdout", "line": {"color": "#0d9488", "width": 2.5}, "hovertemplate": "\u03b1=%{x:.2f}<br>Brier %{y:.4f}<extra>Test-like holdout</extra>"}, {"x": [0.7, 0.7], "y": [0.215, 0.18], "mode": "markers+text", "marker": {"symbol": "diamond", "size": 10, "color": "INK"}, "text": ["reported public LB 0.215", "reported private LB 0.18"], "textposition": "middle right", "name": "Kaggle (reported)", "hovertemplate": "%{text}<extra></extra>"}], "layout": {"xaxis": {"title": "shrinkage factor \u03b1 (1 = raw model)"}, "yaxis": {"title": "Brier score (lower is better)"}, "shapes": [{"type": "line", "x0": 0.7, "x1": 0.7, "yref": "paper", "y0": 0, "y1": 1, "line": {"color": "#d97706", "dash": "dash", "width": 1.5}}]}}, "shift": {"data": [{"type": "bar", "x": [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025], "y": [0.3, 11.5, 12.7, 16.1, 23.0, 17.8, 4.6, 1.8, 4.2, 3.7, 1.7, 2.6], "name": "train fleet", "marker": {"color": "#64748b"}, "hovertemplate": "%{x}: %{y}%<extra>train</extra>"}, {"type": "bar", "x": [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025], "y": [62.7, 1.4, 2.1, 0.7, 2.1, 3.5, 0.7, 5.6, 7.0, 4.9, 3.5, 5.6], "name": "test fleet", "marker": {"color": "#0d9488"}, "hovertemplate": "%{x}: %{y}%<extra>test</extra>"}], "layout": {"barmode": "group", "bargap": 0.25, "xaxis": {"title": "first year with data", "dtick": 1}, "yaxis": {"title": "share of fleet (%)"}}}, "models": {"data": [{"type": "scatter", "mode": "markers", "name": "in-distribution CV", "y": ["constant 0.5", "logistic", "clock only", "larger model", "submitted", "log-loss + Platt"], "x": [0.25, 0.1801, 0.1925, 0.1483, 0.1499, 0.1549], "marker": {"color": "#64748b", "size": 10}, "error_x": {"type": "data", "symmetric": false, "color": "#64748b", "array": [0.0, 0.0072, 0.0099, 0.0081, 0.008, 0.0072], "arrayminus": [0.0, 0.0073, 0.0094, 0.008, 0.0076, 0.007]}, "hovertemplate": "%{y}<br>Brier %{x:.4f}<extra>in-distribution CV</extra>"}, {"type": "scatter", "mode": "markers", "name": "test-like holdout", "y": ["constant 0.5", "logistic", "clock only", "larger model", "submitted", "log-loss + Platt"], "x": [0.25, 0.2089, 0.2045, 0.2018, 0.1968, 0.1922], "marker": {"color": "#0d9488", "size": 10}, "error_x": {"type": "data", "symmetric": false, "color": "#0d9488", "array": [0.0, 0.0151, 0.0159, 0.0153, 0.0142, 0.014], "arrayminus": [0.0, 0.0136, 0.0158, 0.015, 0.0145, 0.0132]}, "hovertemplate": "%{y}<br>Brier %{x:.4f}<extra>test-like holdout</extra>"}], "layout": {"xaxis": {"title": "Brier at \u03b1 = 0.7 (95% aircraft-bootstrap CI)"}, "yaxis": {"automargin": true}}}, "reliability": {"data": [{"x": [0, 1], "y": [0, 1], "mode": "lines", "name": "perfect calibration", "line": {"color": "#94a3b8", "dash": "dot", "width": 1}, "hoverinfo": "skip"}, {"x": [0.037, 0.147, 0.249, 0.347, 0.449, 0.547, 0.655, 0.754, 0.849, 0.957], "y": [0.253, 0.224, 0.34, 0.383, 0.375, 0.344, 0.65, 0.663, 0.855, 0.911], "customdata": [95, 67, 47, 47, 40, 32, 40, 83, 62, 45], "mode": "lines+markers", "name": "raw model", "line": {"color": "#64748b", "width": 2.5}, "marker": {"size": 8}, "hovertemplate": "predicted %{x:.2f}<br>observed %{y:.2f}<br>n = %{customdata}<extra></extra>"}, {"x": [0.167, 0.246, 0.347, 0.448, 0.551, 0.662, 0.744, 0.83], "y": [0.213, 0.272, 0.362, 0.367, 0.469, 0.66, 0.835, 0.882], "customdata": [75, 92, 69, 60, 49, 94, 85, 34], "mode": "lines+markers", "name": "shrunk, \u03b1 = 0.7", "line": {"color": "#0d9488", "width": 2.5}, "marker": {"size": 8}, "hovertemplate": "predicted %{x:.2f}<br>observed %{y:.2f}<br>n = %{customdata}<extra></extra>"}], "layout": {"xaxis": {"title": "mean predicted probability", "range": [0, 1]}, "yaxis": {"title": "observed corrosion rate", "range": [0, 1]}}}, "noise": {"data": [{"x": [50, 100, 143, 284, 500, 1000, 2000], "y": [0.0519, 0.0367, 0.0307, 0.0218, 0.0164, 0.0116, 0.0082], "mode": "lines+markers", "name": "95% margin of error", "line": {"color": "#0d9488", "width": 2.5}, "hovertemplate": "%{x} rows: \u00b1%{y:.3f}<extra></extra>"}], "layout": {"xaxis": {"title": "rows used to compute the score", "type": "log"}, "yaxis": {"title": "95% margin of error"}, "shapes": [{"type": "line", "x0": 143, "x1": 143, "yref": "paper", "y0": 0, "y1": 1, "line": {"color": "#d97706", "dash": "dash", "width": 1.5}}]}}};
+const dark = matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light";
+const ink = dark ? "#e2e8f0" : "#0f172a", grid = dark ? "#1e293b" : "#e2e8f0";
+for (const [id, spec] of Object.entries(charts)) {
+  for (const t of spec.data) if (t.marker && t.marker.color === "INK") t.marker.color = ink;
+  const layout = Object.assign({
+    paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+    font: { family: "Inter, system-ui, sans-serif", color: ink, size: 12 },
+    margin: { t: 20, r: 20, b: 50, l: 60 }, legend: { orientation: "h", y: 1.12 },
+    hoverlabel: { font: { family: "Inter, system-ui, sans-serif" } },
+  }, spec.layout);
+  for (const ax of ["xaxis", "yaxis"]) layout[ax] = Object.assign({ gridcolor: grid, zerolinecolor: grid }, layout[ax] || {});
+  Plotly.newPlot(id, spec.data, layout, { displayModeBar: false, responsive: true });
+}
+</script>
+</body>
+</html>
