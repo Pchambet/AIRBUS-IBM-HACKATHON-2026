@@ -17,16 +17,23 @@ la chaîne de modélisation et de validation de ce dépôt. Le pitch business é
 - **La flotte de test est une autre population.** Un classifieur adversarial (plis groupés par
   avion) distingue les lignes de test des lignes d'entraînement avec une AUC de **0,86** ; 63 % des
   avions de test ont des données dès la première année de l'historique, contre 0,3 % à l'entraînement.
-- **La validation croisée groupée est optimiste.** Brier du modèle brut : **0,140** en distribution,
-  **0,204** sur les 315 avions d'entraînement les plus proches du test.
+- **La validation croisée groupée est optimiste pour cette flotte de test.** Brier du modèle brut :
+  **0,140** en validation croisée groupée, **0,165** dans la même validation sur les 315 avions
+  d'entraînement les plus proches du test, et **0,204** sur ces avions une fois exclus de
+  l'entraînement. Environ 0,025 de l'écart tient à des avions plus difficiles ; les 0,039 restants
+  viennent de l'absence d'avions semblables au test à l'entraînement (et d'un échantillon plus petit).
 - **Un seul paramètre compte.** Le rétrécissement `p → 0,5 + α (p − 0,5)` ne sert à rien en
   distribution (α optimal = 1,00) mais est optimal à **α = 0,72** sur les avions proches du test.
   L'α = 0,7 soumis améliore le Brier de cet échantillon de **0,008** (IC 95 % apparié 0,002–0,014),
   à **0,197**.
-- **L'essentiel du signal transférable est l'horloge.** Deux variables temporelles seules
-  récupèrent **86 %** du gain du modèle complet (66 variables) face à une prévision constante.
-- **Le leaderboard public était du bruit.** Sur 143 lignes, un score de Brier a une marge d'erreur
-  de ±**0,031** ; deux équipes doivent différer de plus de **0,043** pour être départagées.
+- **L'essentiel du signal transférable est l'horloge.** Sur les avions proches du test, deux
+  variables temporelles seules récupèrent l'essentiel du gain du modèle complet (66 variables) face
+  à une prévision constante (estimation ponctuelle **86 %** ; l'écart apparié au modèle complet
+  n'est pas significatif).
+- **Le leaderboard public était trop petit pour classer.** Sur 143 lignes, un score de Brier a une
+  marge d'erreur de ±**0,031**. Deux scores indépendants devraient différer de plus de 0,043 ; une
+  comparaison appariée sur les mêmes lignes est plus fine (environ 0,011 pour deux modèles proches)
+  mais reste grossière.
 
 ## Reproduire
 

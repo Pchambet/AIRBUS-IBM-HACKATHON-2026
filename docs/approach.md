@@ -62,7 +62,13 @@ model is fitted on the 384 least test-like aircraft and scored on the 315 most t
 ones. Confidence intervals resample whole aircraft (2,000 bootstrap draws), because the two
 rows of one aircraft are not independent.
 
-On this holdout the raw model scores 0.204 and is over-confident: when it predicts a 4%
+On this holdout the raw model scores 0.204. The gap to grouped CV (0.140) has two parts.
+The same grouped-CV predictions restricted to the 315 holdout aircraft already score 0.165
+(0.120 on the other aircraft): these aircraft are harder in themselves. The remaining
+0.039 comes from leaving test-like aircraft out of training, which is what the test set
+does, plus a smaller training set (384 aircraft instead of about 560 per CV fold).
+
+The raw model is also over-confident on the holdout: when it predicts a 4%
 risk, the observed rate is 25%. Shrinking toward the base rate,
 `p → 0.5 + α (p − 0.5)`, is a one-parameter fix that cannot change the ranking. Its
 Brier-optimal value has a closed form (least squares of `y − 0.5` on `p − 0.5`):
@@ -83,16 +89,21 @@ On the holdout, with paired comparisons against the submitted model:
   worse on the holdout (+0.005, CI excludes zero): it fits the training fleet harder.
 - A 10-model ensemble (5 seeds × 2 objectives): −0.004, the only interval that excludes
   zero, narrowly. Not submitted.
-- Two clock features alone recover 86% of the full model's gain over a constant forecast
-  on the holdout. The environmental features help a lot in-distribution and much less on
+- Two clock features alone recover most of the full model's gain over a constant forecast
+  on the holdout (point estimate 86%; the paired difference to the full model, +0.008
+  [−0.007, +0.023], is not significant). The environmental features help a lot in-distribution and much less on
   the shifted fleet.
 
 ## 7. Leaderboard noise
 
 Using the holdout's per-row squared errors, a Brier score computed on 143 rows has a
-standard error of 0.016; two independent public scores must differ by more than 0.043 to
-be distinguishable at the 5% level. Most of the public ranking was therefore noise, and the
-submission was selected on the holdout rather than on public feedback.
+standard error of 0.016 (±0.031 at 95%); two independent scores must differ by more than
+0.043 to be distinguishable at the 5% level. Submissions scored on the same rows are
+correlated, so a paired comparison is tighter: about 0.011 for two similar models
+(submitted versus log-loss + Platt). These margins treat rows as independent, although
+public rows come in T / T − 24 pairs from the same aircraft. Either way, small public gaps
+carried little information, and the submission was selected on the holdout rather than on
+public feedback.
 
 ## 8. Leak audit
 
