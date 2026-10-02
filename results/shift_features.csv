@@ -1,0 +1,16 @@
+,split_importance
+cummean_total_parking_minutes,452
+cummean_acid_risk_index,403
+cummean_total_sea_salt_aerosol,381
+ewma_ozone_mass_mixing_ratio,313
+cummean_sulphate_aerosol_mixing_ratio,280
+aircraft_age_months,274
+rolling_24m_metar_temperature_c,191
+cum_acid_risk_index,176
+rolling_24m_metar_dew_point_c,173
+ewma_sulphur_dioxide_mass_mixing_ratio,172
+cum_total_parking_minutes,160
+ewma_carbon_monoxide_mass_mixing_ratio,153
+ewma_nitrogen_dioxide_mass_mixing_ratio,147
+rolling_24m_metar_relative_humidity,137
+metar_visibility_mi,119

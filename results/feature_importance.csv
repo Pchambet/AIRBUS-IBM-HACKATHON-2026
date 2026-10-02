@@ -1,0 +1,16 @@
+,gain_share
+months_observed,0.28345147356530676
+total_parking_minutes,0.10598563286105647
+aircraft_age_months,0.04198917833394205
+rel_total_parking_minutes,0.03977663429716551
+cummean_total_parking_minutes,0.03672170305732193
+cum_total_sea_salt_aerosol,0.02547843279938635
+hno3,0.01927723649049026
+metar_relative_humidity,0.01863566602358975
+ewma_ozone_mass_mixing_ratio,0.016954229286120007
+metar_dew_point_c,0.01695215749971391
+ozone_mass_mixing_ratio,0.016763784539485727
+ewma_sulphate_aerosol_mixing_ratio,0.015228737041791663
+ewma_nitrogen_dioxide_mass_mixing_ratio,0.014526508929587163
+sulphur_dioxide_mass_mixing_ratio,0.014030312257909475
+c3h8,0.012967800028576813
