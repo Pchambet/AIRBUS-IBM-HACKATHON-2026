@@ -1,11 +1,16 @@
 # Python
-venv/
+.venv/
 __pycache__/
 *.pyc
+.ruff_cache/
+.pytest_cache/
 .ipynb_checkpoints/
+.env
 
 # OS / editor
 .DS_Store
 
-# Données de compétition (non publiées)
-data/*.csv
+# Competition data and predictions (not redistributable)
+data/raw/
+data/interim/
+data/submission/

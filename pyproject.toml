@@ -1,0 +1,39 @@
+[project]
+name = "corrosion-risk"
+version = "0.1.0"
+description = "Shift-aware corrosion-risk model and validation study (Airbus x IBM x AWS 2026 hackathon)"
+authors = [
+    { name = "Pierre Chambet", email = "pierrechambet@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "lightgbm>=4.7.0",
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.3",
+    "pandas>=3.0.6",
+    "python-dateutil>=2.9.0.post0",
+    "scikit-learn>=1.9.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.13,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+
+[project.scripts]
+corrosion-risk = "corrosion_risk.cli:main"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+extend-select = ["I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
