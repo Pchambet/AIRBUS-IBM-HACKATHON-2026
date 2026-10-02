@@ -4,7 +4,6 @@ When the test fleet is not your training fleet: a corrosion-risk model for the A
 
 [![ci](https://github.com/Pchambet/AIRBUS-IBM-HACKATHON-2026/actions/workflows/ci.yml/badge.svg)](https://github.com/Pchambet/AIRBUS-IBM-HACKATHON-2026/actions/workflows/ci.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-0d9488)
-[![License: MIT](https://img.shields.io/badge/license-MIT-64748b)](LICENSE)
 [![Report](https://img.shields.io/badge/report-interactive-d97706)](https://pchambet.github.io/AIRBUS-IBM-HACKATHON-2026/)
 
 *Version française : [README.fr.md](README.fr.md)*
