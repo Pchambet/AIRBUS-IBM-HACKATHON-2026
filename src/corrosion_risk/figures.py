@@ -106,7 +106,7 @@ def hero(metrics: dict) -> Path:
     for score, name in ((REPORTED_PUBLIC, "public LB"), (REPORTED_PRIVATE, "private LB")):
         ax.scatter([a], [score], marker="D", s=34, color=INK, zorder=5)
         ax.annotate(
-            f"reported {name} {score:.3f}",
+            f"reported {name} {score:g}",
             (a, score),
             xytext=(9, 0),
             textcoords="offset points",
@@ -115,7 +115,7 @@ def hero(metrics: dict) -> Path:
             color=INK,
         )
     ax.set_xlim(0.3, 1.0)
-    ax.set_ylim(0.13, 0.24)
+    ax.set_ylim(0.125, 0.24)
     ax.set_xlabel("Shrinkage factor α in  p → 0.5 + α (p − 0.5)    (α = 1: raw model)")
     ax.set_ylabel("Brier score (lower is better)")
     ax.set_title(
@@ -276,8 +276,11 @@ def feature_importance(metrics: dict) -> Path:
     ax.grid(axis="y", visible=False)
     ax.set_xlabel("Share of total split gain in the final model (%)")
     share = imp[imp.index.isin(clock)].sum()
+    other = imp[~imp.index.isin(clock)]
     ax.set_title(
-        f"The model mostly reads the clock: two time features (amber) carry {share:.0%} of the gain", pad=10
+        f"Two clock features (amber) carry {share:.0%} of the split gain;\n"
+        f"the largest other feature, {other.idxmax()}, carries {other.max():.0%}",
+        pad=10,
     )
     return _save(fig, "feature_importance.png")
 
