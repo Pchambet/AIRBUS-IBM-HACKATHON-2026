@@ -93,12 +93,13 @@ def hero(metrics: dict) -> Path:
     )
     ood = metrics["ood_brier_alpha"]
     ax.scatter([a], [ood], s=46, color=TEAL, zorder=5, edgecolor="white", linewidth=1.5)
-    ax.annotate(
+    ax.annotate(  # below-right of the marker, clear of the dashed α line
         f"{ood:.3f}",
         (a, ood),
-        xytext=(0, -16),
+        xytext=(6, -6),
         textcoords="offset points",
-        ha="center",
+        ha="left",
+        va="top",
         color=TEAL,
         fontsize=9.5,
         fontweight="bold",
