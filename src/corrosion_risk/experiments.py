@@ -28,6 +28,9 @@ RESULTS = ROOT / "results"
 ALPHAS = np.round(np.arange(0.0, 1.0001, 0.05), 2)
 PUBLIC_LB_ROWS = 143  # size of the public leaderboard sample reported by the organisers
 SEEDS = (1, 7, 42, 123, 2024)
+SUBMITTED = "LightGBM squared error (submitted)"
+PLATT = "LightGBM log-loss + Platt scaling"
+CLOCK = "LightGBM on the two clock features"
 
 Predictor = Callable[[pd.DataFrame, np.ndarray, pd.DataFrame], np.ndarray]
 
@@ -190,6 +193,14 @@ def run(comp: data.Competition, out_dir: Path = RESULTS) -> dict:
 
     oof, ood = evaluate(_mse())
     y_ood, g_ood = y[m_ood], g[m_ood]
+    # Split the CV-to-holdout gap: grouped-CV predictions on the holdout aircraft come from
+    # models that did see other test-like aircraft, so they measure how hard these aircraft
+    # are in themselves; the rest of the gap comes from leaving them out of training.
+    metrics |= {
+        "id_brier_raw_holdout_aircraft": validation.brier(y_ood, oof[m_ood]),
+        "id_best_alpha_holdout_aircraft": validation.optimal_alpha(y_ood, oof[m_ood]),
+        "id_brier_raw_other_aircraft": validation.brier(y[~m_ood], oof[~m_ood]),
+    }
     rows = []
     for a in ALPHAS:
         id_est, id_lo, id_hi = validation.cluster_bootstrap((model.shrink(oof, a) - y) ** 2, g)
@@ -231,20 +242,21 @@ def run(comp: data.Competition, out_dir: Path = RESULTS) -> dict:
     # 4. Model comparison: same features, same splits.
     clock = ["aircraft_age_months", "months_observed"]
     candidates: dict[str, Predictor] = {
-        "LightGBM squared error (submitted)": _mse(),
-        "LightGBM log-loss + Platt scaling": _binary_platt,
+        SUBMITTED: _mse(),
+        PLATT: _binary_platt,
         "LightGBM squared error, 500 trees depth 7": _mse(
             n_estimators=500, learning_rate=0.05, max_depth=7, colsample_bytree=1.0, reg_lambda=0.0
         ),
         "Logistic regression": _logistic,
-        "LightGBM on aircraft age only": _restricted(clock, _mse()),
+        CLOCK: _restricted(clock, _mse()),
     }
-    comp_rows = []
+    comp_rows, ood_preds = [], {}
     for name, predict in {"Constant 0.5": None, **candidates}.items():
         if predict is None:
             o, d = np.full(len(y), 0.5), np.full(len(y_ood), 0.5)
         else:
-            o, d = (oof, ood) if name.endswith("(submitted)") else evaluate(predict)
+            o, d = (oof, ood) if name == SUBMITTED else evaluate(predict)
+        ood_preds[name] = d
         comp_rows.append({"model": name, "split": "in-distribution", **_summary(y, o, g, model.ALPHA, oof)})
         comp_rows.append(
             {"model": name, "split": "out-of-distribution", **_summary(y_ood, d, g_ood, model.ALPHA, ood)}
@@ -252,9 +264,9 @@ def run(comp: data.Competition, out_dir: Path = RESULTS) -> dict:
     comparison = pd.DataFrame(comp_rows)
     comparison.to_csv(out_dir / "model_comparison.csv", index=False)
     ood_rows = comparison[comparison["split"] == "out-of-distribution"].set_index("model")["brier_at_alpha"]
-    gain_full = ood_rows["Constant 0.5"] - ood_rows["LightGBM squared error (submitted)"]
-    gain_clock = ood_rows["Constant 0.5"] - ood_rows["LightGBM on aircraft age only"]
-    metrics["clock_only_ood_brier"] = float(ood_rows["LightGBM on aircraft age only"])
+    gain_full = ood_rows["Constant 0.5"] - ood_rows[SUBMITTED]
+    gain_clock = ood_rows["Constant 0.5"] - ood_rows[CLOCK]
+    metrics["clock_only_ood_brier"] = float(ood_rows[CLOCK])
     metrics["clock_share_of_ood_gain"] = float(gain_clock / gain_full)
 
     # 5. Levers against the shift, judged on the holdout only.
@@ -280,7 +292,14 @@ def run(comp: data.Competition, out_dir: Path = RESULTS) -> dict:
     metrics["public_lb_rows"] = PUBLIC_LB_ROWS
     metrics["public_lb_se"] = se
     metrics["public_lb_ci_halfwidth"] = 1.96 * se
+    # Gap needed to separate two *independent* scores (iid rows, as if from different row samples).
     metrics["public_lb_significant_gap"] = 1.96 * np.sqrt(2) * se
+    # Two submissions scored on the same rows are correlated: a paired test is much tighter.
+    # Illustrated with two similar models (submitted versus log-loss + Platt).
+    paired = sq - (model.shrink(ood_preds[PLATT], model.ALPHA) - y_ood) ** 2
+    metrics["public_lb_paired_gap_example"] = 1.96 * validation.leaderboard_standard_error(
+        paired, PUBLIC_LB_ROWS
+    )
     noise = pd.DataFrame({"n_rows": [50, 100, 143, 284, 500, 1000, 2000]})
     noise["standard_error"] = [validation.leaderboard_standard_error(sq, int(n)) for n in noise["n_rows"]]
     noise.to_csv(out_dir / "leaderboard_noise.csv", index=False)
