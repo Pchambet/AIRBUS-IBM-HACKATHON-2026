@@ -42,7 +42,10 @@ a { color:var(--accent); }
   <h1>When the test fleet is not your training fleet</h1>
   <p class="lede">A corrosion-risk model built for a Kaggle-scored hackathon, and the validation work that decided
   its single most important parameter. Reported result: <strong>6th on the Brier leaderboard, 2nd overall</strong>
-  (model + business pitch), climbing from 22nd on the public leaderboard to 6th on the private one.</p>
+  (model + business pitch), climbing from 22nd on the public leaderboard to 6th on the private one. Both boards are
+  small, so that move is consistent with the approach rather than proof of it (section 5). Team project: the event-time
+  code is in <a href="https://github.com/Yixian-ch/AIRBUS-IBM">the team repository</a>; this is a post-event rebuild
+  and re-analysis of the pipeline I owned as ML lead.</p>
 </header>
 
 <section class="kpis">
@@ -83,7 +86,10 @@ instead of about 559 per CV fold).</p>
 0.5 only hurts (best α = 1.00). On test-like aircraft the raw model is over-confident and the
 Brier-optimal shrinkage is α = 0.72. The submission used α = 0.7; on the holdout that improves
 the Brier by 0.0077 (paired 95% CI 0.0019 to
-0.0138).</p>
+0.0138). That gain is in-sample for α. With α cross-fitted on random halves of the
+holdout aircraft (fitted α from 0.61 to 0.84),
+the gain is 0.0071 (95% CI 0.0018 to
+0.0127).</p>
 <div class="chart" id="sweep"></div>
 <p class="note">Diamonds are the scores reported on the Kaggle leaderboard; they cannot be recomputed without the
 hidden labels. The holdout estimate at α = 0.7 is 0.197
@@ -104,14 +110,18 @@ with Platt scaling) is within noise on the holdout.</p>
 <table><tr><th>Lever</th><th>Brier at α = 0.7</th><th>95% CI</th><th>Δ vs submitted</th><th>AUC</th></tr><tr><td>Full feature set (submitted)</td><td>0.1968</td><td>[0.1824, 0.2110]</td><td></td><td>0.766</td></tr><tr><td>Drop the 5 most shift-revealing features</td><td>0.1984</td><td>[0.1843, 0.2130]</td><td>+0.0016 [-0.0014, +0.0046]</td><td>0.760</td></tr><tr><td>Drop the 10 most shift-revealing features</td><td>0.1932</td><td>[0.1793, 0.2078]</td><td>-0.0036 [-0.0077, +0.0005]</td><td>0.773</td></tr><tr><td>Drop the 15 most shift-revealing features</td><td>0.1925</td><td>[0.1788, 0.2070]</td><td>-0.0044 [-0.0091, +0.0004]</td><td>0.774</td></tr><tr><td>10-model ensemble (5 seeds x 2 objectives)</td><td>0.1929</td><td>[0.1796, 0.2069]</td><td>-0.0039 [-0.0067, -0.0010]</td><td>0.772</td></tr></table>
 <p>Of the 4 levers against the shift, only one has a paired interval that excludes zero, and by a small margin (-0.0039): 10-model ensemble (5 seeds x 2 objectives). With 4 levers tried, treat it as suggestive; it was not part of the submission.</p>
 
-<h2>5. The public leaderboard was too small to rank on</h2>
+<h2>5. The leaderboards were too small to rank on</h2>
 <p>With 143 rows, a single public Brier score carries a 95% margin of error of
 ±0.031, treating rows as independent. Two independent scores would need to differ by more
 than 0.043. Submissions scored on the same rows are correlated, so a paired comparison
 is tighter: for two similar models (submitted versus log-loss + Platt) the threshold is about
-0.011. Public rows also come in T / T − 24 pairs from the same aircraft, which
+0.011. Public rows probably include T / T − 24 pairs from the same aircraft, which
 these row-level formulas ignore. Either way, small public gaps carried little information, which is why the
 submission was chosen on the holdout rather than on public feedback.</p>
+<p>The private board is probably no better. Its row count is not known here, but if only T and T − 24 rows are scored,
+the 142 test aircraft give at most 284 scored rows, leaving at most about 141
+for the private board: the same margin of error. The move from 22nd to 6th is consistent with choosing α on a
+shift-aware holdout, but it does not prove the approach better than the teams ranked nearby.</p>
 <div class="chart small" id="noise"></div>
 
 <h2>6. Leak audit</h2>

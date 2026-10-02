@@ -252,13 +252,19 @@ def build() -> Path:
     a = m["alpha_submitted"]
     clock = comp[(comp["model"] == CLOCK) & (comp["split"] == "out-of-distribution")].iloc[0]
     labelled = m["ood_fit_aircraft"] + m["ood_holdout_aircraft"]
+    # Upper bound on the private board if only T and T-24 rows are scored.
+    max_scored = 2 * m["n_test_aircraft"]
+    private_rows = max_scored - m["public_lb_rows"]
     body = f"""
 <header>
   <p class="kicker">Airbus × IBM × AWS hackathon 2026 · aircraft corrosion risk</p>
   <h1>When the test fleet is not your training fleet</h1>
   <p class="lede">A corrosion-risk model built for a Kaggle-scored hackathon, and the validation work that decided
   its single most important parameter. Reported result: <strong>6th on the Brier leaderboard, 2nd overall</strong>
-  (model + business pitch), climbing from 22nd on the public leaderboard to 6th on the private one.</p>
+  (model + business pitch), climbing from 22nd on the public leaderboard to 6th on the private one. Both boards are
+  small, so that move is consistent with the approach rather than proof of it (section 5). Team project: the event-time
+  code is in <a href="https://github.com/Yixian-ch/AIRBUS-IBM">the team repository</a>; this is a post-event rebuild
+  and re-analysis of the pipeline I owned as ML lead.</p>
 </header>
 
 <section class="kpis">
@@ -299,7 +305,10 @@ instead of about {labelled * 4 // 5} per CV fold).</p>
 0.5 only hurts (best α = {m["id_best_alpha"]:.2f}). On test-like aircraft the raw model is over-confident and the
 Brier-optimal shrinkage is α = {m["ood_best_alpha"]:.2f}. The submission used α = {a}; on the holdout that improves
 the Brier by {m["ood_shrinkage_gain"]:.4f} (paired 95% CI {m["ood_shrinkage_gain_ci"][0]:.4f} to
-{m["ood_shrinkage_gain_ci"][1]:.4f}).</p>
+{m["ood_shrinkage_gain_ci"][1]:.4f}). That gain is in-sample for α. With α cross-fitted on random halves of the
+holdout aircraft (fitted α from {m["ood_crossfit_alpha_range"][0]:.2f} to {m["ood_crossfit_alpha_range"][1]:.2f}),
+the gain is {m["ood_shrinkage_gain_crossfit"]:.4f} (95% CI {m["ood_shrinkage_gain_crossfit_ci"][0]:.4f} to
+{m["ood_shrinkage_gain_crossfit_ci"][1]:.4f}).</p>
 <div class="chart" id="sweep"></div>
 <p class="note">Diamonds are the scores reported on the Kaggle leaderboard; they cannot be recomputed without the
 hidden labels. The holdout estimate at α = {a} is {m["ood_brier_alpha"]:.3f}
@@ -320,14 +329,18 @@ with Platt scaling) is within noise on the holdout.</p>
 {levers}
 <p>{_lever_reading(lever_df)}</p>
 
-<h2>5. The public leaderboard was too small to rank on</h2>
+<h2>5. The leaderboards were too small to rank on</h2>
 <p>With {m["public_lb_rows"]} rows, a single public Brier score carries a 95% margin of error of
 ±{m["public_lb_ci_halfwidth"]:.3f}, treating rows as independent. Two independent scores would need to differ by more
 than {m["public_lb_significant_gap"]:.3f}. Submissions scored on the same rows are correlated, so a paired comparison
 is tighter: for two similar models (submitted versus log-loss + Platt) the threshold is about
-{m["public_lb_paired_gap_example"]:.3f}. Public rows also come in T / T − 24 pairs from the same aircraft, which
+{m["public_lb_paired_gap_example"]:.3f}. Public rows probably include T / T − 24 pairs from the same aircraft, which
 these row-level formulas ignore. Either way, small public gaps carried little information, which is why the
 submission was chosen on the holdout rather than on public feedback.</p>
+<p>The private board is probably no better. Its row count is not known here, but if only T and T − 24 rows are scored,
+the {m["n_test_aircraft"]} test aircraft give at most {max_scored} scored rows, leaving at most about {private_rows}
+for the private board: the same margin of error. The move from 22nd to 6th is consistent with choosing α on a
+shift-aware holdout, but it does not prove the approach better than the teams ranked nearby.</p>
 <div class="chart small" id="noise"></div>
 
 <h2>6. Leak audit</h2>
