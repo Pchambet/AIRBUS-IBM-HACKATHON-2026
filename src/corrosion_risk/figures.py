@@ -231,8 +231,8 @@ def model_comparison(metrics: dict) -> Path:
     ax.scatter([], [], color=TEAL, label="test-like holdout")
     ax.legend(loc="lower left", ncol=2, bbox_to_anchor=(0, 1.0))
     ax.set_title(
-        f"On test-like aircraft, two clock features deliver {metrics['clock_share_of_ood_gain']:.0%}\n"
-        "of the full model's gain over a constant 0.5 forecast",
+        "On test-like aircraft, two clock features deliver most of the full model's gain\n"
+        f"over a constant 0.5 forecast (point estimate {metrics['clock_share_of_ood_gain']:.0%})",
         pad=30,
     )
     return _save(fig, "model_comparison.png")
@@ -257,7 +257,8 @@ def leaderboard_noise(metrics: dict) -> Path:
     ax.set_xlabel("Rows used to compute the score (log scale)")
     ax.set_ylabel("95% margin of error on the Brier score")
     ax.set_title(
-        f"Two teams' public scores must differ by > {metrics['public_lb_significant_gap']:.3f} to be told apart",
+        f"A {metrics['public_lb_rows']}-row public score is only known to ±{metrics['public_lb_ci_halfwidth']:.3f};\n"
+        f"two independent scores must differ by > {metrics['public_lb_significant_gap']:.3f} to be told apart",
         pad=10,
     )
     return _save(fig, "leaderboard_noise.png")

@@ -13,17 +13,17 @@ from pathlib import Path
 import pandas as pd
 
 from corrosion_risk.data import ROOT
-from corrosion_risk.experiments import RESULTS
+from corrosion_risk.experiments import CLOCK, PLATT, RESULTS, SUBMITTED
 from corrosion_risk.figures import REPORTED_PRIVATE, REPORTED_PUBLIC
 
 SITE = ROOT / "site"
 SHORT = {
     "Constant 0.5": "constant 0.5",
-    "LightGBM squared error (submitted)": "submitted",
-    "LightGBM log-loss + Platt scaling": "log-loss + Platt",
+    SUBMITTED: "submitted",
+    PLATT: "log-loss + Platt",
     "LightGBM squared error, 500 trees depth 7": "larger model",
     "Logistic regression": "logistic",
-    "LightGBM on aircraft age only": "clock only",
+    CLOCK: "two clock features",
 }
 PLOTLY = "https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"
 
@@ -233,10 +233,11 @@ def _lever_reading(levers: pd.DataFrame) -> str:
     tried = len(levers) - 1
     if better.empty:
         return f"None of the {tried} levers against the shift beats the submitted model with a paired interval excluding zero."
-    names = ", ".join(html.escape(n) for n in better["lever"])
+    names = "; ".join(html.escape(n) for n in better["lever"])
+    count = "only one has" if len(better) == 1 else f"only {len(better)} have"
     return (
-        f"Of the {tried} levers against the shift, only {names} has a paired interval that excludes zero, and by a "
-        f"small margin ({better['delta_vs_submitted'].iloc[0]:+.4f}). With {tried} levers tried, treat it as "
+        f"Of the {tried} levers against the shift, {count} a paired interval that excludes zero, and by a small "
+        f"margin ({better['delta_vs_submitted'].iloc[0]:+.4f}): {names}. With {tried} levers tried, treat it as "
         "suggestive; it was not part of the submission."
     )
 
@@ -249,6 +250,8 @@ def build() -> Path:
     levers = _table(lever_df, "Lever")
     charts = json.dumps(_charts(m))
     a = m["alpha_submitted"]
+    clock = comp[(comp["model"] == CLOCK) & (comp["split"] == "out-of-distribution")].iloc[0]
+    labelled = m["ood_fit_aircraft"] + m["ood_holdout_aircraft"]
     body = f"""
 <header>
   <p class="kicker">Airbus × IBM × AWS hackathon 2026 · aircraft corrosion risk</p>
@@ -260,7 +263,8 @@ def build() -> Path:
 
 <section class="kpis">
   <div><span>{m["adversarial_auc_grouped"]:.2f}</span>adversarial AUC: test aircraft are easy to tell apart</div>
-  <div><span>{m["id_brier_raw"]:.3f} → {m["ood_brier_raw"]:.3f}</span>raw-model Brier, in-distribution → test-like</div>
+  <div><span>{m["id_brier_raw"]:.3f} → {m["id_brier_raw_holdout_aircraft"]:.3f} → {m["ood_brier_raw"]:.3f}</span>raw-model
+  Brier: CV overall → CV on test-like aircraft → test-like aircraft left out of training</div>
   <div><span>α = {m["ood_best_alpha"]:.2f}</span>Brier-optimal shrinkage on test-like aircraft (CV says 1.00)</div>
   <div><span>±{m["public_lb_ci_halfwidth"]:.3f}</span>95% margin of error of a {m["public_lb_rows"]}-row public score</div>
 </section>
@@ -286,6 +290,11 @@ something else for them.</p>
 question that matters, the training aircraft were ranked by how test-like the adversarial model finds them; the model
 is fitted on the {m["ood_fit_aircraft"]} least test-like and scored on the {m["ood_holdout_aircraft"]} most
 test-like ({m["ood_holdout_rows"]} rows). Uncertainty comes from a bootstrap over aircraft, not rows.</p>
+<p>The gap between the two validations has two parts. Grouped CV scores {m["id_brier_raw"]:.3f} overall but already
+{m["id_brier_raw_holdout_aircraft"]:.3f} on the test-like aircraft (against {m["id_brier_raw_other_aircraft"]:.3f} on
+the others): these aircraft are harder in themselves. Leaving them out of training, as the test set does, raises it
+to {m["ood_brier_raw"]:.3f}. Part of that last step is the smaller training set ({m["ood_fit_aircraft"]} aircraft
+instead of about {labelled * 4 // 5} per CV fold).</p>
 <p>The two validations disagree on the one decision that matters. In-distribution, shrinking predictions toward
 0.5 only hurts (best α = {m["id_best_alpha"]:.2f}). On test-like aircraft the raw model is over-confident and the
 Brier-optimal shrinkage is α = {m["ood_best_alpha"]:.2f}. The submission used α = {a}; on the holdout that improves
@@ -303,29 +312,38 @@ hidden labels. The holdout estimate at α = {a} is {m["ood_brier_alpha"]:.3f}
 {ood_table}
 <div class="chart" id="models"></div>
 <p>Two honest readings. First, a LightGBM that sees only the two clock features (months observed, age) captures
-{m["clock_share_of_ood_gain"]:.0%} of the full model's gain over a constant forecast on test-like aircraft; the
-environmental features add little that transfers. Second, the choice of objective (squared error versus log-loss
+most of the full model's gain over a constant forecast on test-like aircraft (point estimate
+{m["clock_share_of_ood_gain"]:.0%}; its paired difference to the full model, {clock["delta_vs_submitted"]:+.4f}
+[{clock["delta_ci_low"]:+.4f}, {clock["delta_ci_high"]:+.4f}], is not significant); the environmental features add
+little that transfers. Second, the choice of objective (squared error versus log-loss
 with Platt scaling) is within noise on the holdout.</p>
 {levers}
 <p>{_lever_reading(lever_df)}</p>
 
-<h2>5. Why the public leaderboard was not worth chasing</h2>
+<h2>5. The public leaderboard was too small to rank on</h2>
 <p>With {m["public_lb_rows"]} rows, a single public Brier score carries a 95% margin of error of
-±{m["public_lb_ci_halfwidth"]:.3f}; two independent scores must differ by more than
-{m["public_lb_significant_gap"]:.3f} to be told apart. Most of the public ranking was noise, which is why the
+±{m["public_lb_ci_halfwidth"]:.3f}, treating rows as independent. Two independent scores would need to differ by more
+than {m["public_lb_significant_gap"]:.3f}. Submissions scored on the same rows are correlated, so a paired comparison
+is tighter: for two similar models (submitted versus log-loss + Platt) the threshold is about
+{m["public_lb_paired_gap_example"]:.3f}. Public rows also come in T / T − 24 pairs from the same aircraft, which
+these row-level formulas ignore. Either way, small public gaps carried little information, which is why the
 submission was chosen on the holdout rather than on public feedback.</p>
 <div class="chart small" id="noise"></div>
 
 <h2>6. Leak audit</h2>
 <p>No artefact betrays the corrosion month: missingness at T differs from other months by at most
-{m["leak_max_missingness_gap"]:.2%}; duplicate rows are about as frequent at T ({m["leak_duplicate_rate_at_t"]:.1%})
+{m["leak_max_missingness_gap"] * 100:.2f} percentage points; duplicate rows are about as frequent at T ({m["leak_duplicate_rate_at_t"]:.1%})
 as elsewhere ({m["leak_duplicate_rate_elsewhere"]:.1%}); T is the last observed month for only
 {m["leak_t_is_last_month_share"]:.1%} of aircraft (median gap {m["leak_months_from_t_to_last_median"]:.0f} months).</p>
 
 <h2>Limitations</h2>
 <ul>
   <li>The holdout is one split of {m["ood_holdout_aircraft"]} aircraft; it is deliberately pessimistic (the model sees
-  only 55% of training aircraft) and served to choose α, not to forecast the final score.</li>
+  only {m["ood_fit_aircraft"] / labelled:.0%} of the {labelled} labelled training aircraft) and served to choose α, not to
+  forecast the final score.</li>
+  <li>The benchmark contrasts T with T − 24 within each aircraft, so elapsed time is informative by construction. A good
+  Brier here does not by itself show value for scheduling inspections, which would need every-month labels and a cost
+  model.</li>
   <li>Leaderboard scores and ranks are as reported by the organisers and cannot be reproduced here.</li>
   <li>The first observed month stands in for delivery because the test set has no delivery date; it is wrong for
   aircraft whose history starts with the record.</li>
