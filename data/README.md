@@ -1,10 +1,21 @@
-# Données
+# Data
 
-Les données de la compétition **Airbus × IBM × AWS 2026** ne sont **pas incluses** dans ce
-dépôt public, conformément aux règles du concours Kaggle.
+The Airbus × IBM × AWS 2026 competition data is **not included**: the Kaggle rules do not
+allow redistribution. Results tables derived from it (`results/`) and the figures are committed.
 
-## Reproduire
-1. Télécharger les données depuis la page Kaggle (`haks-airbus-x-ibm-x-aws-2026`) et placer
-   ici : `environment_training.csv`, `environment_test.csv`, `corrosions_training.csv`,
-   `sample_submission-2.csv`.
-2. Lancer `python train_final_model.py` → génère `data/final_submission_best.csv`.
+Expected files in `data/raw/` (gitignored):
+
+| File | Content |
+|---|---|
+| `environment_training.csv` | 63,524 aircraft-months for 758 training aircraft: weather (METAR), aerosols, gases, parking time |
+| `environment_test.csv` | 14,303 aircraft-months for 142 test aircraft |
+| `corrosions_training.csv` | one corrosion observation date per training aircraft |
+| `sample_submission-2.csv` | submission template (one row per test aircraft-month) |
+
+## Getting them
+
+1. Accept the competition rules on Kaggle (`haks-airbus-x-ibm-x-aws-2026`).
+2. Either `make data` (uses the Kaggle CLI and your Kaggle credentials), or download the
+   files by hand and run `make data SOURCE=/path/to/folder` to copy them into place.
+
+`CORROSION_DATA_DIR` overrides the location.
