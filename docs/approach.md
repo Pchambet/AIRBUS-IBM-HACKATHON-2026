@@ -69,11 +69,16 @@ The same grouped-CV predictions restricted to the 315 holdout aircraft already s
 does, plus a smaller training set (384 aircraft instead of about 560 per CV fold).
 
 The raw model is also over-confident on the holdout: when it predicts a 4%
-risk, the observed rate is 25%. Shrinking toward the base rate,
+risk, the observed rate is 25%. (After shrinkage the low end is fixed and the high end turns
+slightly under-confident: a predicted 74% is observed 84% of the time.) Shrinking toward the base rate,
 `p → 0.5 + α (p − 0.5)`, is a one-parameter fix that cannot change the ranking. Its
 Brier-optimal value has a closed form (least squares of `y − 0.5` on `p − 0.5`):
 α = 1.00 in-distribution, α = 0.72 on the holdout. The submission used α = 0.7, which
 improves the holdout Brier by 0.008 (paired 95% CI 0.002 to 0.014) and gives 0.197.
+That gain is in-sample for α, since α was chosen on the same rows. Cross-fitting removes the
+optimism: split the holdout aircraft into two random halves, fit α on one half, score the
+other, swap, and average over 20 splits. The fitted α ranges from 0.61 to 0.84 and the gain
+is 0.007 (95% CI 0.002 to 0.013), so the in-sample figure overstates it only slightly.
 
 During the event the holdout was summarised with an aircraft-weighted mean, which put it
 at about 0.21–0.22, close to the public score of 0.215. The row-weighted estimate used
@@ -101,9 +106,15 @@ standard error of 0.016 (±0.031 at 95%); two independent scores must differ by 
 0.043 to be distinguishable at the 5% level. Submissions scored on the same rows are
 correlated, so a paired comparison is tighter: about 0.011 for two similar models
 (submitted versus log-loss + Platt). These margins treat rows as independent, although
-public rows come in T / T − 24 pairs from the same aircraft. Either way, small public gaps
-carried little information, and the submission was selected on the holdout rather than on
+public rows probably include T / T − 24 pairs from the same aircraft. Either way, small public
+gaps carried little information, and the submission was selected on the holdout rather than on
 public feedback.
+
+The private board is not obviously better. Its row count is not known here, but if only the
+T and T − 24 rows are scored, the 142 test aircraft give at most 284 scored rows, which leaves
+at most about 141 for the private board after the 143 public ones: the same ±0.03 margin. The
+move from 22nd public to 6th private is therefore consistent with the approach, not proof of
+it; ranks a few places apart on either board are within noise.
 
 ## 8. Leak audit
 

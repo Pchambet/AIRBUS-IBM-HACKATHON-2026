@@ -12,8 +12,12 @@ When the test fleet is not your training fleet: a corrosion-risk model for the A
 
 **Outcome (as reported by the organisers):** 6th on the Kaggle Brier leaderboard and 2nd overall
 (model + business pitch). The model moved from 22nd on the public leaderboard (Brier 0.215) to
-6th on the private one (0.18). Team project; I was the ML lead and built the modelling and
-validation pipeline in this repository. The business pitch was a team effort.
+6th on the private one (0.18); both boards are small, so read that move with the
+[limitations](#methodology-notes-and-limitations) in mind. This was a team project, and the code
+written during the event is in the team repository
+[Yixian-ch/AIRBUS-IBM](https://github.com/Yixian-ch/AIRBUS-IBM). I was the ML lead and owned the
+corrosion-risk pipeline; this repository is my post-event rebuild and re-analysis of that pipeline.
+The business pitch was a team effort.
 
 ## TL;DR
 
@@ -27,13 +31,17 @@ validation pipeline in this repository. The business pitch was a team effort.
   training set).
 - **One parameter matters.** Shrinking predictions toward 0.5, `p → 0.5 + α (p − 0.5)`, is useless
   in-distribution (optimal α = 1.00) but optimal at **α = 0.72** on test-like aircraft. The
-  submitted α = 0.7 improves the holdout Brier by **0.008** (paired 95% CI 0.002–0.014) to **0.197**.
+  submitted α = 0.7 improves the holdout Brier by **0.008** (paired 95% CI 0.002–0.014) to **0.197**;
+  with α cross-fitted on the other half of the holdout, so that it is not scored on the rows that
+  chose it, the gain is **0.007** (0.002–0.013).
 - **Most of the transferable signal is the clock.** On test-like aircraft, a model on two time
   features alone recovers most of the full 66-feature model's gain over a constant forecast (point
   estimate **86%**; its paired difference to the full model is not significant).
-- **The public leaderboard was too small to rank on.** On 143 rows a Brier score carries a
+- **The leaderboards were too small to rank on.** On 143 public rows a Brier score carries a
   ±**0.031** margin of error. Two independent scores would need to differ by more than 0.043; a
   paired comparison on the same rows is tighter (about 0.011 for two similar models) but still coarse.
+  The private board is probably no larger (about 141 rows), so the same caveat applies to the final
+  rank.
 
 ## Why it matters
 
@@ -76,7 +84,8 @@ are left-censored: a population the training fleet barely covers.
 
 ![Reliability on the test-like holdout](docs/figures/reliability_ood.png)
 On test-like aircraft the raw model is over-confident at the low end (it says 4%, the observed rate is
-25%); shrinkage removes the worst of it without changing the ranking.
+25%); shrinkage removes the worst of it without changing the ranking, at the cost of slight
+under-confidence above 0.7 (it says 74%, the observed rate is 84%).
 
 | Model, judged on the test-like holdout (α = 0.7) | Brier | 95% CI | Δ vs submitted (paired) | AUC |
 |---|---|---|---|---|
@@ -105,14 +114,15 @@ parking time and the exposure doses.
 ![Leaderboard noise](docs/figures/leaderboard_noise.png)
 With 143 public rows a single score is known to ±0.031, and two independent scores closer than 0.043
 cannot be told apart (a paired comparison on the same rows is tighter, about 0.011 for two similar
-models). The submission was therefore chosen on the holdout, not on public feedback.
+models). The submission was therefore chosen on the holdout, not on public feedback. The private
+board is probably about as small, so the final rank carries the same noise.
 
 **Leak audit.** Missingness at T differs from other months by at most 0.06 percentage points;
 duplicated rows are about as common at T (7.6%) as elsewhere (6.0%); T is the last observed month for
 only 1.8% of aircraft. Nothing exploitable.
 
-**Reproducibility check.** `make train` regenerates the archived final submission file
-(`final_submission_best.csv`, 14,303 rows) byte for byte on the machine used for this analysis
+**Reproducibility check.** `make train` regenerates the file submitted during the event (not
+redistributed; `final_submission_best.csv`, 14,303 rows) byte for byte on the machine used for this analysis
 (SHA-256 `5650040577d7ebf99586c21f19af75aa0025a6f3d4ebabf08080e310ea186cd2`). Other platforms or
 library builds may differ at machine precision (< 1e-16).
 
@@ -124,7 +134,7 @@ The full narrative, including the detours, is in [`docs/approach.md`](docs/appro
 ```bash
 make setup                          # uv sync --locked (Python 3.12)
 make data                           # Kaggle CLI, or: make data SOURCE=/path/to/downloaded/files
-make run                            # submission + all experiments + figures (about 2 min on a laptop)
+make run                            # submission + all experiments + figures (about a minute on a laptop)
 make report                         # site/index.html
 ```
 
@@ -165,13 +175,20 @@ site/              generated report (GitHub Pages)
 - **Row versus aircraft weighting.** During the event the holdout was summarised per aircraft
   (about 0.21–0.22, which matched the public score); this re-analysis uses the leaderboard's row
   weighting. Matching a 143-row public score to three decimals was never informative.
-- **Leaderboard margins are approximate.** They treat the 143 public rows as independent, but they come
-  in T / T − 24 pairs from the same aircraft; the paired threshold depends on how similar two
-  submissions are.
+- **Leaderboard margins are approximate.** They treat the 143 public rows as independent, but these
+  probably include T / T − 24 pairs from the same aircraft; the paired threshold depends on how
+  similar two submissions are.
+- **The private rank is just as noisy.** The private board's row count is not known here. If only the
+  T and T − 24 rows are scored, the 142 test aircraft give at most 284 scored rows, which leaves at
+  most about 141 for the private board: the same ±0.03 margin as the public one. The move from 22nd
+  to 6th is consistent with choosing α on a shift-aware holdout, but it does not prove the approach
+  better than the teams ranked nearby.
 - **Age is a proxy.** The test set has no delivery date, so the first observed month stands in for
   it. For aircraft whose history starts with the record this is wrong, and it is one source of shift.
 - **Multiple comparisons.** Several candidates were compared on the same holdout; small paired
-  differences (|Δ| < 0.005) should be read as suggestive.
+  differences (|Δ| < 0.005) should be read as suggestive. α was chosen on that holdout too, so its
+  0.008 gain is in-sample for α. Cross-fitting α on random halves of the holdout aircraft (fitted α
+  from 0.61 to 0.84) gives 0.007 (95% CI 0.002–0.013): the optimism is small.
 - **Physics stays crude.** EWMA half-life (12 months) and interaction terms are engineering choices,
   not fitted corrosion kinetics.
 
