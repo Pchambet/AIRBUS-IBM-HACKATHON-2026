@@ -95,6 +95,10 @@ most shift-revealing features changes the holdout Brier by +0.002 to −0.004, a
 The two clock features carry most of what transfers to the shifted fleet; the environmental features
 help much more in-distribution than out of it.
 
+![Feature importance](docs/figures/feature_importance.png)
+The final model agrees: months observed and the age proxy carry a third of the split gain, ahead of
+parking time and the exposure doses.
+
 ![Leaderboard noise](docs/figures/leaderboard_noise.png)
 With 143 public rows, ranks separated by less than 0.043 are statistically indistinguishable, so the
 submission was chosen on the holdout, not on public feedback.
