@@ -40,6 +40,15 @@
     0.0019,
     0.0138
   ],
+  "ood_shrinkage_gain_crossfit": 0.0071,
+  "ood_shrinkage_gain_crossfit_ci": [
+    0.0018,
+    0.0127
+  ],
+  "ood_crossfit_alpha_range": [
+    0.6079,
+    0.8357
+  ],
   "clock_only_ood_brier": 0.2045,
   "clock_share_of_ood_gain": 0.8551,
   "public_lb_rows": 143,

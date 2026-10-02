@@ -18,7 +18,7 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import GroupKFold, StratifiedKFold
 
-from corrosion_risk.model import N_JOBS
+from corrosion_risk.model import N_JOBS, shrink
 
 
 def brier(y: np.ndarray, p: np.ndarray) -> float:
@@ -109,6 +109,32 @@ def optimal_alpha(y: np.ndarray, p: np.ndarray) -> float:
     if denom == 0.0:
         return float("nan")
     return float(np.dot(centred, np.asarray(y, float) - 0.5) / denom)
+
+
+def crossfit_shrinkage_delta(
+    y: np.ndarray, p: np.ndarray, groups: np.ndarray, n_repeats: int = 20, seed: int = 0
+) -> tuple[np.ndarray, list[float]]:
+    """Per-row change in squared error from shrinkage, with alpha chosen on other aircraft.
+
+    Choosing alpha and measuring its gain on the same rows flatters the gain. Here the
+    aircraft are split in two halves; each half is shrunk with the alpha fitted on the
+    other one. Per-row deltas are averaged over `n_repeats` random halvings so the result
+    does not hinge on one split. Negative values mean shrinkage helps. Also returns every
+    alpha that was fitted, to show how stable the choice is.
+    """
+    y, p, groups = np.asarray(y, float), np.asarray(p, float), np.asarray(groups)
+    aircraft = np.unique(groups)
+    rng = np.random.default_rng(seed)
+    delta = np.zeros(len(y))
+    alphas: list[float] = []
+    for _ in range(n_repeats):
+        half = rng.permutation(aircraft)[: len(aircraft) // 2]
+        in_half = np.isin(groups, half)
+        for scored in (in_half, ~in_half):
+            a = optimal_alpha(y[~scored], p[~scored])
+            alphas.append(a)
+            delta[scored] += (shrink(p[scored], a) - y[scored]) ** 2 - (p[scored] - y[scored]) ** 2
+    return delta / n_repeats, alphas
 
 
 def leaderboard_standard_error(squared_errors: np.ndarray, n_rows: int) -> float:

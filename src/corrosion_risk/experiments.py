@@ -1,6 +1,6 @@
 """Every number quoted in the README is computed here and written to `results/`.
 
-Run with `corrosion-risk analyze` (about a minute on a laptop). The outputs are small
+Run with `corrosion-risk analyze` (under a minute on a laptop). The outputs are small
 CSV/JSON tables that the figure and report builders read, so the narrative can never
 drift from the code.
 """
@@ -226,6 +226,13 @@ def run(comp: data.Competition, out_dir: Path = RESULTS) -> dict:
     d_est, d_lo, d_hi = validation.cluster_bootstrap(delta, g_ood)
     metrics["ood_shrinkage_gain"] = -d_est
     metrics["ood_shrinkage_gain_ci"] = [-d_hi, -d_lo]
+    # The gain above is in-sample for alpha (alpha was chosen on this holdout); cross-fitting
+    # alpha on the other half of the holdout aircraft removes that optimism.
+    cf_delta, cf_alphas = validation.crossfit_shrinkage_delta(y_ood, ood, g_ood)
+    c_est, c_lo, c_hi = validation.cluster_bootstrap(cf_delta, g_ood)
+    metrics["ood_shrinkage_gain_crossfit"] = -c_est
+    metrics["ood_shrinkage_gain_crossfit_ci"] = [-c_hi, -c_lo]
+    metrics["ood_crossfit_alpha_range"] = [min(cf_alphas), max(cf_alphas)]
 
     # 3. Reliability on the holdout: raw versus shrunk.
     edges = np.linspace(0, 1, 11)

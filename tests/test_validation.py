@@ -2,10 +2,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from corrosion_risk.model import shrink
 from corrosion_risk.validation import (
     adversarial_validation,
     brier,
     cluster_bootstrap,
+    crossfit_shrinkage_delta,
     leaderboard_standard_error,
     ood_split,
     optimal_alpha,
@@ -37,6 +39,30 @@ def test_cluster_bootstrap_point_and_interval():
     assert est == pytest.approx(values.mean())
     assert 0.2 - 1e-12 <= lo <= est <= hi <= 0.8 + 1e-12  # bounded by the extreme aircraft means
     assert cluster_bootstrap(np.full(6, 0.25), groups)[1:] == (0.25, 0.25)
+
+
+def _overconfident(alpha_true: float, n_aircraft: int, seed: int):
+    rng = np.random.default_rng(seed)
+    raw = rng.uniform(0, 1, 2 * n_aircraft)
+    y = (rng.uniform(size=raw.size) < 0.5 + alpha_true * (raw - 0.5)).astype(float)
+    return y, raw, np.repeat(np.arange(n_aircraft), 2)
+
+
+def test_crossfit_shrinkage_recovers_the_gain_of_a_real_overconfidence():
+    """Ground truth: with alpha_true = 0.6 the gain is (1 - 0.6)^2 * E[(p - 0.5)^2] = 0.16 / 12."""
+    y, raw, groups = _overconfident(0.6, 50_000, seed=3)
+    delta, alphas = crossfit_shrinkage_delta(y, raw, groups, n_repeats=2)
+    assert -delta.mean() == pytest.approx(0.16 / 12, abs=0.001)
+    assert len(alphas) == 4 and all(a == pytest.approx(0.6, abs=0.02) for a in alphas)
+
+
+def test_crossfit_shrinkage_is_not_flattered_on_calibrated_scores():
+    """In-sample, the fitted alpha can only help; cross-fitted, a spurious gain disappears."""
+    y, raw, groups = _overconfident(1.0, 150, seed=4)
+    in_sample = (shrink(raw, optimal_alpha(y, raw)) - y) ** 2 - (raw - y) ** 2
+    delta, _ = crossfit_shrinkage_delta(y, raw, groups)
+    assert in_sample.mean() <= 0
+    assert delta.mean() > in_sample.mean()
 
 
 def test_leaderboard_standard_error_matches_formula():
