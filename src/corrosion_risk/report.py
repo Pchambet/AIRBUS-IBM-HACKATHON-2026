@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import html
 import json
+import math
 from pathlib import Path
 
 import pandas as pd
@@ -26,6 +27,7 @@ SHORT = {
     CLOCK: "two clock features",
 }
 PLOTLY = "https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"
+NOISE_TICKS = (50, 100, 200, 500, 1000, 2000)
 
 
 def _charts(m: dict) -> dict:
@@ -80,6 +82,15 @@ def _charts(m: dict) -> dict:
                     "hovertemplate": "%{text}<extra></extra>",
                 }
             ],
+            # Phones: the labels go left of the markers, where the plot has room.
+            "narrow": {
+                "traces": {
+                    "4": {
+                        "textposition": "middle left",
+                        "text": [f"public LB {REPORTED_PUBLIC}", f"private LB {REPORTED_PRIVATE}"],
+                    }
+                }
+            },
             "layout": {
                 "xaxis": {"title": "shrinkage factor α (1 = raw model)"},
                 "yaxis": {"title": "Brier score (lower is better)"},
@@ -149,6 +160,12 @@ def _charts(m: dict) -> dict:
                 "xaxis": {"title": f"Brier at α = {a} (95% aircraft-bootstrap CI)"},
                 "yaxis": {"automargin": True},
             },
+            "narrow": {
+                "layout": {
+                    "xaxis": {"title": f"Brier at α = {a}<br>(95% aircraft-bootstrap CI)"},
+                    "margin": {"t": 20, "r": 20, "b": 70, "l": 60},
+                }
+            },
         },
         "reliability": {
             "data": [
@@ -194,8 +211,26 @@ def _charts(m: dict) -> dict:
                 }
             ],
             "layout": {
-                "xaxis": {"title": "rows used to compute the score", "type": "log"},
+                "xaxis": {
+                    "title": "rows used to compute the score (log scale)",
+                    "type": "log",
+                    "tickvals": NOISE_TICKS,
+                    "ticktext": [f"{t:,}" for t in NOISE_TICKS],
+                },
                 "yaxis": {"title": "95% margin of error"},
+                "annotations": [
+                    {
+                        "x": math.log10(m["public_lb_rows"]),
+                        "y": 1,
+                        "yref": "paper",
+                        "text": f"{m['public_lb_rows']} public rows",
+                        "showarrow": False,
+                        "xanchor": "left",
+                        "yanchor": "top",
+                        "xshift": 4,
+                        "font": {"color": "#d97706"},
+                    }
+                ],
                 "shapes": [
                     {
                         "type": "line",
@@ -409,7 +444,12 @@ Built by <a href="https://github.com/Pchambet">Pierre Chambet</a> — decision s
 const charts = {charts};
 const dark = matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light";
 const ink = dark ? "#e2e8f0" : "#0f172a", grid = dark ? "#1e293b" : "#e2e8f0";
+const narrow = matchMedia("(max-width: 600px)").matches;
 for (const [id, spec] of Object.entries(charts)) {{
+  if (narrow && spec.narrow) {{
+    for (const [i, t] of Object.entries(spec.narrow.traces || {{}})) Object.assign(spec.data[+i], t);
+    for (const [k, v] of Object.entries(spec.narrow.layout || {{}})) spec.layout[k] = Object.assign({{}}, spec.layout[k], v);
+  }}
   for (const t of spec.data) if (t.marker && t.marker.color === "INK") t.marker.color = ink;
   const layout = Object.assign({{
     paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
